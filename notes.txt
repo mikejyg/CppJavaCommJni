@@ -1,0 +1,15 @@
+with regard to NewStringUTF() causing memory leak:
+
+the JNI documentation does not seem to document how to properly handle memory management for the call.
+
+the following helped.
+
+from url
+https://stackoverflow.com/questions/6238785/newstringutf-and-freeing-memory
+
+They are talking about the jstring instance returned by NewStringUTF(). That follows the confusing rules for 'local references'.
+
+It is never an error to release this reference with DeleteLocalRef() when you are finished with it. However, the JVM performs some dubious magic if you call NewStringUTF() in the context of a JVM thread. When the native method returns to Java, any leaked local references are automatically cleaned up. So if you are sure your ultimate caller is in a Java thread, then you can safely leak the reference.
+
+On the other hand, if you are running in the context of a native thread - say, some event reporting thread making callbacks to Java - there never is a return to Java, so you must call DeleteLocalRef() yourself on this jstring (and indeed all the other local references returned by typical JNI calls).
+
