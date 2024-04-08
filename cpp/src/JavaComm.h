@@ -11,6 +11,7 @@
 #include "Jvm.h"
 #include <global.h>
 #include <functional>
+#include <cstdint>
 
 /**
  * send and receive using java programs.
@@ -20,12 +21,16 @@ private:
 	jclass senderClass;
 	jmethodID sendMethod;
 
-	std::function<void(char const *)> receiveHandler;
+	jclass listenerClass;
+
+	std::function<void(uint8_t const *, unsigned)> receiveHandler;
 
 public:
 	JavaComm(JNIEnv * envPtr) {
 		senderClass = envPtr->FindClass("javaComm/Sender");
-		sendMethod = envPtr->GetStaticMethodID(senderClass, "send", "(Ljava/lang/String;)I");
+		sendMethod = envPtr->GetStaticMethodID(senderClass, "send", "([B)I");
+
+		listenerClass = envPtr->FindClass("javaComm/Listener");
 	}
 
 	/**
@@ -50,19 +55,23 @@ public:
 		envPtr->CallStaticVoidMethod(cls, mid);
 	}
 
-	void send(JNIEnv * envPtr, std::string const & str) {
-		jstring jstr = envPtr->NewStringUTF(str.c_str());
-		auto k = envPtr->CallStaticIntMethod( senderClass, sendMethod, jstr );
-		envPtr->DeleteLocalRef(jstr);
+	void send(JNIEnv * envPtr, uint8_t const * bytes, unsigned len) {
+		jbyteArray jba = envPtr->NewByteArray(len);
+		envPtr->SetByteArrayRegion(jba, 0, len, (jbyte const *)bytes);
+
+		auto k = envPtr->CallStaticIntMethod( senderClass, sendMethod, jba );
+		
+		envPtr->DeleteLocalRef(jba);
+
 		if (!k)
 			throw std::runtime_error("java send failed.");
 	}
 
-	void handleReceive(char const * cstr) {
+	void handleReceive(uint8_t const * bytes, unsigned length) {
 		if (receiveHandler)
-			receiveHandler(cstr);
+			receiveHandler(bytes, length);
 		else
-			LOG_DEBUG(std::string("C++ received: ") + cstr);
+			LOG_DEBUG(std::string("C++ received bytes: ") + std::to_string(length));
 	}
 
 	template<typename F>
@@ -73,6 +82,24 @@ public:
 	int getJavaSendCnt(JNIEnv * envPtr) const {
 		auto method = envPtr->GetStaticMethodID(senderClass, "getSendCnt", "()I");
 		auto k = envPtr->CallStaticIntMethod( senderClass, method );
+		return k;
+	}
+
+	uint64_t getJavaSendByteCnt(JNIEnv * envPtr) const {
+		auto method = envPtr->GetStaticMethodID(senderClass, "getByteCnt", "()J");
+		auto k = envPtr->CallStaticLongMethod( senderClass, method );
+		return k;
+	}
+
+	int getJavaRecvCnt(JNIEnv * envPtr) const {
+		auto method = envPtr->GetStaticMethodID(listenerClass, "getRecvCnt", "()I");
+		auto k = envPtr->CallStaticIntMethod( listenerClass, method );
+		return k;
+	}
+
+	uint64_t getJavaRecvByteCnt(JNIEnv * envPtr) const {
+		auto method = envPtr->GetStaticMethodID(listenerClass, "getRecvByteCnt", "()J");
+		auto k = envPtr->CallStaticLongMethod( listenerClass, method );
 		return k;
 	}
 

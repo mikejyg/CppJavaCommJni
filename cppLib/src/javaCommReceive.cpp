@@ -13,8 +13,11 @@ extern "C"
  * Method:    javaToCpp
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_javaComm_Listener_javaToCpp(JNIEnv *jenv, jobject, jstring jstr) {
-	auto * cstr = jenv->GetStringUTFChars(jstr, nullptr);
-	javaCommPtr->handleReceive(cstr);
-	jenv->ReleaseStringUTFChars(jstr, cstr);
+JNIEXPORT void JNICALL Java_javaComm_Listener_javaToCpp(JNIEnv *jenv, jobject, jbyteArray jba) {
+	auto * jbytes = jenv->GetByteArrayElements(jba, nullptr);
+	auto size = jenv->GetArrayLength(jba);
+
+	javaCommPtr->handleReceive( (uint8_t const *)jbytes, size );
+
+	jenv->ReleaseByteArrayElements(jba, jbytes, JNI_ABORT);
 }

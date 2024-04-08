@@ -11,11 +11,14 @@ public class Listener {
 	}
 
 	// Declare an instance native method sayHello() which receives no parameter and returns void
-	private native void javaToCpp(String str);
+	private native void javaToCpp(byte[] bytes);
 
 	private Thread listenerThread;
 	private boolean active = false;
 	private static Listener listener;
+	
+	int recvCnt=0;
+	long recvByteCnt=0;
 	
 	private Listener() {
 	}
@@ -33,17 +36,26 @@ public class Listener {
 		@Override
 		public void run() {
 			Random random = new Random();
-			// use this to speed up the calls.
-//    		String str="";
-//    		for (int i=0; i<1000; i++) {
-//    			str = str + String.valueOf(random.nextInt()) + " ";
-//    		}
-	    	while (active) {
-	    		String str="";
-	    		for (int i=0; i<1000; i++) {
-	    			str = str + String.valueOf(random.nextInt()) + " ";
-	    		}
-	    		getInstance().javaToCpp(str);
+			
+//			byte[] bytes=new byte[5000];
+//			for (int i=0; i<5000; i+=4) {
+//				int a=random.nextInt();
+//				bytes[i]=(byte) (a & 0xff);
+//				a>>=8;
+//				bytes[i+1]=(byte) (a & 0xff);
+//				a>>=8;
+//				bytes[i+2]=(byte) (a & 0xff);
+//				bytes[i+3]=(byte) (a>>8);
+//			}
+			
+			while (active) {
+				int sendLen = (int) (random.nextDouble()*5000);
+				byte[] bytes=new byte[sendLen];
+				
+				getInstance().javaToCpp(bytes);
+				
+				recvCnt++;
+				recvByteCnt+=sendLen;
 	    	}
 		}
 	};
@@ -55,7 +67,17 @@ public class Listener {
 			Random random = new Random();
 	    	while (active) {
 //	    		System.out.println("listener calling receive...");
-	    		getInstance().javaToCpp(String.valueOf(random.nextInt()));
+	    		byte[] bytes=new byte[8];
+	    		for (int i=0; i<8; i+=4) {
+					int a=random.nextInt();
+					bytes[i]=(byte) (a & 0xff);
+					a>>=8;
+					bytes[i+1]=(byte) (a & 0xff);
+					a>>=8;
+					bytes[i+2]=(byte) (a & 0xff);
+					bytes[i+3]=(byte) (a>>8);
+	    		}
+	    		getInstance().javaToCpp(bytes);
 	    		try {
 					Thread.sleep(3);
 				} catch (InterruptedException e) {
@@ -96,5 +118,14 @@ public class Listener {
 	public static int isActive() {
 		return getInstance().active ? 1:0;
 	}
+	
+	public static int getRecvCnt() {
+		return getInstance().recvCnt;
+	}
+	
+	public static long getRecvByteCnt() {
+		return getInstance().recvByteCnt;
+	}
+	
 	
 }
